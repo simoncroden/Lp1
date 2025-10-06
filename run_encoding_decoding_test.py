@@ -16,8 +16,17 @@ import math
 #######################################################################
 
 def encode_network(w_ih,w_ho,w_max):
+  chromosome = []
 
- # Add code here!
+  for row in w_ih:
+      for val in row:
+          chromosome.append(val)
+
+  for row in w_ho:
+      for val in row:
+          chromosome.append(val)
+  
+  return chromosome
 
 #
 # Decoding: Starting from a chromosome of length Nh x (Ni+1) + No x (Nh+1), use
@@ -34,7 +43,26 @@ def encode_network(w_ih,w_ho,w_max):
 
 def decode_chromosome(chromosome, n_i, n_h, n_o, w_max):
 
-  # Add code here!
+  w_ih = []
+  w_ho = []
+  
+  size_ih = n_h * (n_i + 1)
+  size_ho = n_o * (n_h + 1)
+  
+  w_ih_flat = chromosome[:size_ih]
+  w_ho_flat = chromosome[size_ih:size_ih + size_ho]
+  
+  for i in range(n_h):
+      start = i * (n_i + 1)
+      end = start + (n_i + 1)
+      w_ih.append(w_ih_flat[start:end])
+  
+  for i in range(n_o):
+      start = i * (n_h + 1)
+      end = start + (n_h + 1)
+      w_ho.append(w_ho_flat[start:end])
+  
+  return w_ih, w_ho
 
 
 ############################################################
@@ -43,7 +71,7 @@ def decode_chromosome(chromosome, n_i, n_h, n_o, w_max):
 
 # The maximum (absolute) value of weights and biases. Thus, they take values in
 # the range [-w_max,w_max]
-w_max = 5;
+w_max = 5
 
 # Sample network of size 3-3-2. Note the the number of rows in w_ih MUST be
 # equal to the number of columns in w_ho, minus 1; see also the definition of nH below.
@@ -52,8 +80,8 @@ w_max = 5;
 # not just for the example below! Thus, test your encoding and decoding functions by
 # defining different set of matrices w_ih and w_ho (fulfilling the criterion on nH, see below)
 #
-w_ih = [ [2, 1, -3, 1], [5, -2, 1, 4], [3, 0, 1, 2]];
-w_ho = [[1, 0, -4, 3], [4, -2, 0, 1]];
+w_ih = [ [2, 1, -3, 1], [5, -2, 1, 4], [3, 0, 1, 2]]
+w_ho = [[1, 0, -4, 3], [4, -2, 0, 1]]
 n_i = len(w_ih[0])-1
 n_h = len(w_ih) # % must be equal to len(w_ho[0])-1, for a valid set of matrices for an FFNN
 n_o = len(w_ho)
