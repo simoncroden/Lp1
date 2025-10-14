@@ -21,27 +21,6 @@ def initialize_population(M,N,m,n):
 
     return population
 
-
-
-
-
-# Decode chromosome:
-# DELTE
-def decode_chromosome(chromosome, number_of_variables, maximum_variable_value):
-    
-    number_of_genes = len(chromosome)
-    n_half = int(number_of_genes/number_of_variables)
-
-    x = []
-    for i in range(number_of_variables): 
-      x_temp = 0
-      for j in range(n_half):
-          bit_index = i * n_half + j
-          x_temp += chromosome[bit_index] * pow(2,-j-1)
-      x_temp = -maximum_variable_value + 2*maximum_variable_value*x_temp/(1-pow(2,-n_half))
-      x.append(x_temp)
-    return x
-
 def operators(op1,op2,op):
     if op == 1:
         return op1 + op2
@@ -82,7 +61,6 @@ def evaluate_individual(instructions, variable_registers, constant_registers, da
     
     fitness_val = 1 / (np.sqrt(1/len(data)*e))
     return fitness_val
-
 
 # Select individuals:
 def tournament_select(fitness_list, tournament_selection_parameter, tournament_size):
@@ -131,7 +109,6 @@ def mutate(chromosome, M, N, mutation_prob):
         mutated.append(new_instr)
     return mutated
 
-
 # Genetic algorithm
 def run_function_optimization(
     M, N, m, n, data,
@@ -142,7 +119,7 @@ def run_function_optimization(
     number_of_generations
 ):
   population = initialize_population(M,N,m,n)
-  constant_registers = [random.uniform(-10,10) for t in range(N)]
+  constant_registers = [t for t in range(N)]
   stagnation_counter = 0
 
   for generation_index in range(number_of_generations):
@@ -197,14 +174,7 @@ def run_function_optimization(
 data = load_function_data()
 
 M, N = 100, 100
-m, n = 300, 300
-
-#print(population)
-
-# Evaluate first individual: evaluate_individual(instructions, variable_registers, constant_registers, data, M=10, N=10):
-
-#for i in range(0,10):
-#  print(evaluate_individual(population[i], [0]*M, constant_registers,data, M,N))
+m, n = 100, 100
 
 best_fitness, best_chromosome = run_function_optimization(
     M, N, m, n, data,

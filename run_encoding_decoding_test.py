@@ -1,4 +1,5 @@
 import math
+import numpy as np
 
 # Test of encoding and decoding
 #
@@ -20,11 +21,13 @@ def encode_network(w_ih,w_ho,w_max):
 
   for row in w_ih:
       for val in row:
-          chromosome.append(val)
+          gene = (val + w_max) / (2 * w_max)
+          chromosome.append(gene)
 
   for row in w_ho:
       for val in row:
-          chromosome.append(val)
+          gene = (val + w_max) / (2 * w_max)
+          chromosome.append(gene)
   
   return chromosome
 
@@ -42,27 +45,20 @@ def encode_network(w_ih,w_ho,w_max):
 #######################################################################
 
 def decode_chromosome(chromosome, n_i, n_h, n_o, w_max):
+    size_ih = n_h * (n_i + 1)
+    size_ho = n_o * (n_h + 1)
 
-  w_ih = []
-  w_ho = []
-  
-  size_ih = n_h * (n_i + 1)
-  size_ho = n_o * (n_h + 1)
-  
-  w_ih_flat = chromosome[:size_ih]
-  w_ho_flat = chromosome[size_ih:size_ih + size_ho]
-  
-  for i in range(n_h):
-      start = i * (n_i + 1)
-      end = start + (n_i + 1)
-      w_ih.append(w_ih_flat[start:end])
-  
-  for i in range(n_o):
-      start = i * (n_h + 1)
-      end = start + (n_h + 1)
-      w_ho.append(w_ho_flat[start:end])
-  
-  return w_ih, w_ho
+    # Rescale genes from [0,1] to [-w_max, w_max]
+    chromosome_rescaled = [-w_max + 2 * w_max * gene for gene in chromosome]
+
+    w_ih_flat = chromosome_rescaled[:size_ih]
+    w_ho_flat = chromosome_rescaled[size_ih:size_ih + size_ho]
+
+    w_ih = np.array(w_ih_flat).reshape(n_h, n_i + 1)
+    w_ho = np.array(w_ho_flat).reshape(n_o, n_h + 1)
+
+    return w_ih, w_ho
+
 
 
 ############################################################
