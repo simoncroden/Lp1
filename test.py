@@ -99,23 +99,37 @@ def tournament_select(fitness_list, tournament_probability, tournament_size):
     return chosen[-1]
 
 # ---------- Crossover (instruction-level) ----------
+import random
+import copy
+
 def two_point_instruction_crossover(p1, p2):
     """
-    Two-point crossover *between instructions*.
-    p1, p2 are lists of instructions.
-    Returns children (c1, c2) where each child is a list of instructions.
+    Two-point crossover between instruction sequences.
+    
+    Args:
+        p1, p2 (list): Parent instruction lists of equal length.
+
+    Returns:
+        tuple: (c1, c2) children as deep copies (lists of instructions).
     """
     n = len(p1)
     if n <= 1:
         return copy.deepcopy(p1), copy.deepcopy(p2)
-    i1, i2 = sorted(random.sample(range(1, n), 2))  # split points between instructions
-    # ensure decent segment length
+
+    # Choose two crossover points (not at the very start or end)
+    i1, i2 = sorted(random.sample(range(1, n), 2))
+
+    # Enforce a minimum segment length for meaningful crossover
     min_len = max(1, n // 10)
     if i2 - i1 < min_len:
         i2 = min(i1 + min_len, n - 1)
+
+    # Construct children via crossover
     c1 = copy.deepcopy(p1[:i1] + p2[i1:i2] + p1[i2:])
     c2 = copy.deepcopy(p2[:i1] + p1[i1:i2] + p2[i2:])
+
     return c1, c2
+
 
 def uniform_instruction_crossover(p1, p2):
     n = len(p1)

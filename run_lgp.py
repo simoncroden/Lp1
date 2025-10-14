@@ -1,154 +1,142 @@
-import numpy as np
 import random
+import numpy as np
+import matplotlib.pyplot as plt
 from function_data import load_function_data
 
-def tournament_select(fitness_list, tournament_selection_parameter, tournament_size):
-    population_size = len(fitness_list)
+def initialize_population(population_size, min_length, max_length, ops, var_Regs, all_Regs):
+    population = []
+    for _ in range(population_size):
+        L = random.randrange(min_length, max_length+1)
+        L += (4 - L%4)%4
+        chrom = [random.randint(1,len(ops)) if i%4==0 else random.randint(1,len(var_Regs) if i%4==1 else len(all_Regs))
+                 for i in range(L)]
+        population.append({'Chromosome': chrom})
+    return population
 
-    random_indexs = random.sample(range(population_size), tournament_size)
-    random_indexs.sort(key=lambda idx: fitness_list[idx], reverse=True)
+def evaluate_individual(chrom, varRegs, constRegs, maxLen, minLen,test=False):
+    C_MAX = 1e7
+    data = load_function_data()
+    n=len(data)
+    y_approx = np.zeros(n)
+    y_true = np.zeros(n)
+    x_points = np.zeros(n)
 
-    for i in range(tournament_size):
-      r = random.random()
-      if r < tournament_selection_parameter:
-         return random_indexs[i]
-      
+    for i,(x,y) in enumerate(data):
+        regs = [x]+[0]*(len(varRegs)-1)+constRegs
+        for j in range(0,len(chrom),4):
+            op,dst,a,b = chrom[j:j+4]
+            a,b = regs[a-1], regs[b-1]
+            regs[dst-1] = [a+b, a-b, a*b, a/b if b!=0 else C_MAX][op-1]
+        y_approx[i],y_true[i],x_points[i] = regs[0],y,x
+
+    rmse = np.sqrt(np.mean((y_true-y_approx)**2))
+    fitness = 1/rmse if rmse>0 else C_MAX
+
+    if len(chrom)<minLen or len(chrom)>maxLen: 
+        fitness/=C_MAX
+
+    if test:
+        return {
+            'rootMeanSquareError': rmse,
+            'xPoints': x_points,
+            'yApprox': y_approx,
+            'yTrue': y_true
+        }
+    
+    return fitness
+
+def tournament_select(fitness, prob, size):
+    random_indexs = random.choices(range(len(fitness)), k=size)
+    random_indexs.sort(key=lambda idx: fitness[idx], reverse=True)
+
+    for i in range(size):
+        r = random.random()
+        if r < prob: 
+            return random_indexs[i]
+    
     return random_indexs[-1]
 
-def cross(chromosome1, chromosome2):
-    number_of_genes = len(chromosome1)
-    pt1, pt2 = sorted(random.sample(range(1, number_of_genes), 2))
+def TwoPointCrossover(w1, w2, pop, p):
+    if random.random() < p:
+        c1, c2 = pop[w1]['Chromosome'], pop[w2]['Chromosome']
+        points = []
+        for c in [c1, c2]:
+            while True:
+                r1, r2 = sorted(random.sample([i for i in range(1,len(c)+1) if i%4==0],2))
+                points.append((r1,r2))
+                break
+        a1,b1 = points[0]
+        a2,b2 = points[1]
+        return [{'Chromosome': c1[:a1]+c2[a2:b2]+c1[b1:]}, {'Chromosome': c2[:a2]+c1[a1:b1]+c2[b2:]}]
+    return [{'Chromosome': pop[w1]['Chromosome']}, {'Chromosome': pop[w2]['Chromosome']}]
+
+def Mutate(chrom, ops, varRegs, allRegs, rate):
+    nInst = len(chrom)//4
+    prob = rate/len(chrom)
+    genes = [chrom[i::4] for i in range(4)]
+    for i in range(nInst):
+        if random.random()<prob: 
+            genes[0][i]=random.randint(1,len(ops))
+        if random.random()<prob: 
+            genes[1][i]=random.randint(1,len(varRegs))
+        if random.random()<prob: 
+            genes[2][i]=random.randint(1,len(allRegs))
+        if random.random()<prob: 
+            genes[3][i]=random.randint(1,len(allRegs))
+    return {'Chromosome':[genes[i%4][i//4] for i in range(len(chrom))]}
+
+def run_function_optimization(pop_size, min_len, max_len, ops, var_regs, all_regs,
+                              n_gen, consts, t_prob, t_size, c_prob, m_rate,mDecay):
     
-    new_chromosome_1 = (
-        chromosome1[:pt1] + chromosome2[pt1:pt2] + chromosome1[pt2:]
-    )
-    new_chromosome_2 = (
-        chromosome2[:pt1] + chromosome1[pt1:pt2] + chromosome2[pt2:]
-    )
-    return new_chromosome_1, new_chromosome_2
+    population = initialize_population(pop_size, min_len, max_len, ops, var_regs, all_regs)
+    fitness_list = np.zeros(pop_size)
+    best_fitness = [0, 0]  
+    global_best_chrom = None
 
-def mutate(instr, M, N):
-    """Mutate a single instruction [op, dst, src1, src2]."""
-    field = random.randint(0, 3)
-    if field == 0:  # mutate operator
-        instr[0] = random.randint(1, 4)
-    elif field == 1:  # mutate destination register
-        instr[1] = random.randint(1, M)
-    else:  # mutate operands
-        instr[field] = random.randint(1, M+N)
-    return instr
+    for gen in range(1, n_gen + 1):
+        for i in range(pop_size):
+            f = evaluate_individual(population[i]['Chromosome'],
+                                    var_regs.copy(), consts, max_len, min_len)
+            fitness_list[i] = f
+            if f > best_fitness[0]:
+                best_fitness = [f, i]
+                global_best_chrom = population[i]['Chromosome'].copy()
 
-def operators(op1,op2,op):
-    if op == 1:
-        return op1 + op2
-    elif op == 2:
-        return op1 - op2
-    elif op == 3:
-        return op1 * op2
-    elif op == 4:
-        if op2 != 0:
-            return op1 / op2
-        else:
-            return 0
-    
+        new_population = []
+        for _ in range(0, pop_size, 2):
+            w1 = tournament_select(fitness_list, t_prob, t_size)
+            w2 = tournament_select(fitness_list, t_prob, t_size)
+            children = TwoPointCrossover(w1, w2, population, c_prob)
+            new_population.extend(children)
 
-def decoder(instruction,variable_registers,constant_registers):
-    vandc = (variable_registers + constant_registers)
-    op1= vandc[instruction[2]-1]
-    op2= vandc[instruction[3]-1]
- 
-    variable_registers[instruction[1]-1] = operators(op1,op2,instruction[0])
-    return variable_registers
+        elite_individual = {'Chromosome': global_best_chrom.copy()}
+        new_population[0] = elite_individual
 
-M = 100
-N = 100
-variable_registers = [1] * M
-constant_registers = [random.randint(1, 1000) for _ in range(N)]
+        for i in range(1, pop_size):
+            chrom = new_population[i]['Chromosome']
+            mutated = Mutate(chrom, ops, var_regs, all_regs, m_rate)
+            new_population[i] = mutated
 
-data = load_function_data()
+        m_rate *= mDecay
+        population = new_population
 
-#print(instructions)
-#print(decoder(instructions[0],variable_registers,constant_registers))
+        if gen % 1000 == 0 and global_best_chrom is not None:
+            with open("best_chromosome.py", "w") as f:
+                f.write(" ".join(map(str, global_best_chrom)))
+            print(f"Gen {gen} RMS: {1 / best_fitness[0]:.6f}")
 
-def fitness(instructions, data, M=10, N=10):
+    if global_best_chrom is not None:
+        with open("best_chromosome.py", "w") as f:
+            f.write(" ".join(map(str, global_best_chrom)))
+            print(f"Gen {gen} RMS: {1 / best_fitness[0]:.6f}")
 
-    y_k = []
-    for i in data:
-        variable_registers = [0] * M
-        variable_registers[0] = i[0]  
-        
-        for instr in instructions:
-            decoder(instr, variable_registers, constant_registers)
-        y_k.append(variable_registers[0])
+nGen,popSize = 30,100
+maxLen,minLen=150,25
+tProb,tSize,cProb,mRate,mDecay = 0.75,5,0.8,80,0.9999
+nVar=3
+ops=[1,2,3,4]
+consts=[1,2,3,4]
+varRegs=[0]*nVar
+allRegs=varRegs+consts
 
-    e = 0
-    for idx,k in enumerate(data):
-        e += (k[1]-y_k[idx])**2
-    
-    fitness_val = 1 / (np.sqrt(1/len(data)*e))
-    return fitness_val
-
-def ga(pop_size=20, gens=50, prog_len=10, M=10, N=10):
-    data = load_function_data()
-    
-    # Initialize population of programs
-    population = []
-    for _ in range(pop_size):
-        program = []
-        for _ in range(prog_len):
-            instr = [
-                random.randint(1,4),   # operator
-                random.randint(1,M),   # destination register
-                random.randint(1,M+N), # operand 1
-                random.randint(1,M+N)  # operand 2
-            ]
-            program.append(instr)
-        population.append(program)
-    
-    # evolution loop
-    for g in range(gens):
-        fitnesses = [fitness(prog, data, M, N) for prog in population]
-        
-        new_pop = []
-        
-        # elitism
-        best_idx = max(range(len(population)), key=lambda i: fitnesses[i])
-        elite = [instr[:] for instr in population[best_idx]]  # deep copy
-        new_pop.append(elite)
-        
-        while len(new_pop) < pop_size:
-            # selection
-            p1 = population[tournament_select(fitnesses, 0.75, 3)]
-            p2 = population[tournament_select(fitnesses, 0.75, 3)]
-            
-            # crossover
-            if random.random() < 0.9:
-                c1, c2 = cross(p1, p2)
-            else:
-                c1, c2 = p1[:], p2[:]
-            
-            # mutation
-            if random.random() < 0.2:
-                idx = random.randrange(len(c1))
-                c1[idx] = mutate(c1[idx][:], M, N)
-            if random.random() < 0.2:
-                idx = random.randrange(len(c2))
-                c2[idx] = mutate(c2[idx][:], M, N)
-            
-            new_pop.extend([c1, c2])
-        
-        population = new_pop[:pop_size]
-        
-        # progress
-        best_fit = max(fitnesses)
-        print(f"Gen {g+1}/{gens}  Best fitness: {best_fit}")
-    
-    # return best program
-    fitnesses = [fitness(prog, data, M, N) for prog in population]
-    best_idx = max(range(len(population)), key=lambda i: fitnesses[i])
-    return population[best_idx], fitnesses[best_idx]
-
-if __name__ == "__main__":
-    best_prog, best_fit = ga(pop_size=20, gens=50, prog_len=10, M=100, N=100)
-    print("\nBest program:", best_prog)
-    print("Best fitness:", best_fit)
+run_function_optimization(popSize,minLen,maxLen,ops,varRegs,allRegs, nGen,consts,tProb,tSize,cProb,mRate,mDecay)

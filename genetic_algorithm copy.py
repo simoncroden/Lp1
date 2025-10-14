@@ -119,7 +119,7 @@ def run_function_optimization(
     number_of_generations
 ):
   population = initialize_population(M,N,m,n)
-  constant_registers = [t for t in range(N)]
+  constant_registers = [1, 3, -1, 2]
   stagnation_counter = 0
 
   for generation_index in range(number_of_generations):
@@ -173,14 +173,14 @@ def run_function_optimization(
  
 data = load_function_data()
 
-M, N = 100, 100
+M, N = 3, 4
 m, n = 100, 100
 
 best_fitness, best_chromosome = run_function_optimization(
     M, N, m, n, data,
-    2,
+    4,
     0.75,
-    0.7,
+    0.8,
     0.2,
     1000
 )
