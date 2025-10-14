@@ -3,41 +3,34 @@ import numpy as np
 from function_data import load_function_data
 import matplotlib.pyplot as plt
 
-def evaluate_individual(chrom, varRegs, constRegs, maxLen, minLen,test=False):
-    C_MAX = 1e8
+
+def evaluate_individual(chrom, var_regs, const_regs):
+    c_max = 1e8
     data = load_function_data()
-    n=len(data)
+    n = len(data)
     y_approx = np.zeros(n)
     y_true = np.zeros(n)
     x_points = np.zeros(n)
 
-    for i,(x,y) in enumerate(data):
-        regs = [x]+[0]*(len(varRegs)-1)+constRegs
-        for j in range(0,len(chrom),4):
-            op,dst,a,b = chrom[j:j+4]
-            a,b = regs[a-1], regs[b-1]
-            regs[dst-1] = [a+b, a-b, a*b, a/b if b!=0 else C_MAX][op-1]
-        y_approx[i],y_true[i],x_points[i] = regs[0],y,x
+    for i, (x, y) in enumerate(data):
+        regs = [x] + [0] * (len(var_regs) - 1) + const_regs
+        for j in range(0, len(chrom), 4):
+            op, dst, a, b = chrom[j:j + 4]
+            a, b = regs[a - 1], regs[b - 1]
+            regs[dst - 1] = [a + b, a - b, a * b, a / b if b != 0 else c_max][op - 1]
+        y_approx[i], y_true[i], x_points[i] = regs[0], y, x
 
-    rmse = np.sqrt(np.mean((y_true-y_approx)**2))
-    fitness = 1/rmse if rmse>0 else C_MAX
+    rmse = np.sqrt(np.mean((y_true - y_approx) ** 2))
 
-    if len(chrom)<minLen or len(chrom)>maxLen: 
-        fitness/=C_MAX
-
-    if test:
-        return {
-            'rootMeanSquareError': rmse,
-            'xPoints': x_points,
-            'yApprox': y_approx,
-            'yTrue': y_true
-        }
-    
-    return fitness
-
+    return {
+        'root_mean_square_error': rmse,
+        'x_points': x_points,
+        'y_approx': y_approx,
+        'y_true': y_true
+    }
 
 def estimate_function(chromosome):
-    const_registers = ["1", "3", "-1", "2"]
+    const_registers = ["1", "2", "3", "4"]
     variable_registers = ["x", "0", "0"]
     registers = variable_registers + const_registers
 
@@ -57,24 +50,22 @@ def estimate_function(chromosome):
 
     return sp.simplify(sp.sympify(registers[0]))
 
+n_var = 3
+consts = [1, 2, 3, 4]
+var_regs = [0] * n_var
 
+with open("best_chromosome.py", "r") as f:
+    chrom = [int(x) for x in f.read().split()]
 
+eval_res = evaluate_individual(chrom, var_regs.copy(), consts)
 
-maxLen,minLen=150,25
-nVar=3
-consts=[1,2,3,4]
-varRegs=[0]*nVar
-
-# --- Final evaluation ---
-with open("best_chromosome.py","r") as f: 
-    chrom=[int(x) for x in f.read().split()]
-evalRes = evaluate_individual(chrom,varRegs.copy(),consts,maxLen,minLen,test=True)
-plt.figure(figsize=(8,5))
-plt.plot(evalRes['xPoints'],evalRes['yTrue'],'-',linewidth=1.5,label="g(x)")
-plt.plot(evalRes['xPoints'],evalRes['yApprox'],'--',linewidth=1.5,label="Approx")
+plt.figure(figsize=(8, 5))
+plt.plot(eval_res['x_points'], eval_res['y_true'], '-', linewidth=1.5, label="g(x)")
+plt.plot(eval_res['x_points'], eval_res['y_approx'], '--', linewidth=1.5, label="Approx")
 plt.xlabel("x")
 plt.ylabel("y")
 plt.legend()
 plt.show()
+
 print(f"Estimated function: {estimate_function(chrom)}")
-print(f"RMS error: {evalRes['rootMeanSquareError']*100:.2f}%")
+print(f"RMS error: {eval_res['root_mean_square_error'] * 100:.2f}%")
