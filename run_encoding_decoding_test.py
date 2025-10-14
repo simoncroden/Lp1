@@ -45,19 +45,22 @@ def encode_network(w_ih,w_ho,w_max):
 #######################################################################
 
 def decode_chromosome(chromosome, n_i, n_h, n_o, w_max):
+    # Number of weights in input-to-hidden and hidden-to-output layers (including biases)
     size_ih = n_h * (n_i + 1)
     size_ho = n_o * (n_h + 1)
 
-    # Rescale genes from [0,1] to [-w_max, w_max]
-    chromosome_rescaled = [-w_max + 2 * w_max * gene for gene in chromosome]
+    # Rescale chromosome genes from [0,1] to [-w_max, w_max]
+    chromosome_rescaled = np.array(chromosome) * 2 * w_max - w_max
 
+    # Extract and reshape weight matrices
     w_ih_flat = chromosome_rescaled[:size_ih]
     w_ho_flat = chromosome_rescaled[size_ih:size_ih + size_ho]
 
-    w_ih = np.array(w_ih_flat).reshape(n_h, n_i + 1)
-    w_ho = np.array(w_ho_flat).reshape(n_o, n_h + 1)
+    w_ih = w_ih_flat.reshape(n_h, n_i + 1)
+    w_ho = w_ho_flat.reshape(n_o, n_h + 1)
 
     return w_ih, w_ho
+
 
 
 
