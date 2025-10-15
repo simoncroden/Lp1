@@ -11,27 +11,37 @@ def evaluate_individual(chromosome, var_regs, const_regs):
     y_approximation = []
     x_points = np.zeros(len(data))
 
-    for x, y in data:
-
+    for idx, (x, y) in enumerate(data):
         regs = [x] + [0] * (len(var_regs) - 1) + const_regs
+
         for i in range(0, len(chromosome), 4):
             operation, destination, register_1, register_2 = chromosome[i:i + 4]
             register_1_val, register_2_val = regs[register_1 - 1], regs[register_2 - 1]
 
             if operation == 1:
-                result = register_1_val+register_2_val
+                result = register_1_val + register_2_val
             elif operation == 2:
-                result = register_1_val-register_2_val
+                result = register_1_val - register_2_val
             elif operation == 3:
-                result = register_1_val*register_2_val
+                result = register_1_val * register_2_val
             else:
-                result = register_1_val/register_2_val if register_2_val != 0 else C_MAX
+                result = register_1_val / register_2_val if register_2_val != 0 else C_MAX
 
             regs[destination - 1] = result
 
+        x_points[idx] = x
         y_true.append(y)
         y_approximation.append(regs[0])
-        x_points.append(x)
+
+    rmse = np.sqrt(np.mean((np.array(y_true) - np.array(y_approximation)) ** 2))
+    return {
+        'root_mean_square_error': rmse,
+        'x_points': x_points,
+        'y_approx': y_approximation,
+        'y_true': y_true
+    }
+
+
 
     rmse = np.sqrt(np.mean((np.array(y_true) - np.array(y_approximation)) ** 2))
 
