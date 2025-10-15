@@ -68,9 +68,9 @@ constants = [1, 2, 3, 4]
 var_regs = [0] * number_of_variable_registers
 
 with open("best_chromosome.py", "r") as f:
-    chrom = [int(x) for x in f.read().split()]
+    chromomosomes = [int(x) for x in f.read().split()]
 
-evaluate = evaluate_individual(chrom, var_regs.copy(), constants)
+evaluate = evaluate_individual(chromomosomes, var_regs.copy(), constants)
 
 plt.figure(figsize=(8, 5))
 plt.plot(evaluate['x_points'], evaluate['y_true'], '-', linewidth=1.5, label="g(x)")
@@ -80,5 +80,5 @@ plt.ylabel("y")
 plt.legend()
 plt.show()
 
-print(f"Estimated function: {estimate_function(chrom)}")
+print(f"Estimated function: {estimate_function(chromomosomes)}")
 print(f"RMS error: {evaluate['root_mean_square_error'] * 100:.2f}%")

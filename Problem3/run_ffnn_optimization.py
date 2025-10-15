@@ -3,6 +3,9 @@ import numpy as np
 import random
 from run_encoding_decoding_test import encode_network, decode_chromosome
 from slopes import get_slope_angle
+import matplotlib.pyplot as plt
+
+
 
 START_VELOCITY = 20
 MIN_VELOCITY = 1
@@ -15,28 +18,27 @@ TAU = 30
 HEAT_CONSTANT = 40
 MAX_SLOPE_ANGLE = 10
 DELTA_T = 0.1
-DELTA_T_INT = 1              
+DELTA_T_INT = 1
 INITIAL_TIME_COUNTER = 20
-GEAR_TIME_CONSTRAINT_INT = 20  
+GEAR_TIME_CONSTRAINT_INT = 20
 SLOPE_LENGTH = 1000
 PRESSURE_THRESHOLD = 0.01
+
 
 def sigmoid(x, c=2):
     return 1 / (1 + np.exp(-c * x))
 
+
 def tournament_select(fitness_list, tournament_selection_parameter, tournament_size):
     population_size = len(fitness_list)
-
     random_indices = random.sample(range(population_size), tournament_size)
-
     random_indices.sort(key=lambda idx: fitness_list[idx], reverse=True)
-
     for i in range(tournament_size):
         r = random.random()
         if r < tournament_selection_parameter:
             return random_indices[i]
-
     return random_indices[-1]
+
 
 def cross(chromosome1, chromosome2):
     number_of_genes = len(chromosome1)
@@ -45,104 +47,89 @@ def cross(chromosome1, chromosome2):
     new_chromosome_2 = np.concatenate((chromosome2[:cross_point], chromosome1[cross_point:]))
     return [new_chromosome_1, new_chromosome_2]
 
+
 def mutate(chromosome, mutation_prob, creep_prob=0.8, creep_rate=0.5):
     mutated = chromosome.copy()
     for i in range(len(chromosome)):
         if random.random() < mutation_prob:
             if random.random() < creep_prob:
-                mutated[i] = mutated[i] - creep_rate/2 + creep_rate * random.random()
+                mutated[i] = mutated[i] - creep_rate / 2 + creep_rate * random.random()
                 mutated[i] = max(0, min(1, mutated[i]))
             else:
                 mutated[i] = 1 - mutated[i]
     return mutated
 
+
 def truck_model(pressure, temp_b, temp_max, alpha_deg, gear, dt, current_velocity):
     CB = 3000.0
     MASS = 20000.0
     G = 9.82
-    tmax = 0.0
 
     gear_forces = {
         1: 7.0, 2: 5.0, 3: 4.0, 4: 3.0, 5: 2.5,
         6: 2.0, 7: 1.6, 8: 1.4, 9: 1.2, 10: 1.0
     }
-
     feb = gear_forces[gear] * CB
     fg = MASS * G * math.sin(math.radians(alpha_deg))
-
     if temp_b < temp_max - 100:
         fb = MASS * G * pressure / 20.0
     else:
-        fb = MASS * G * pressure * math.exp(-(temp_b - (tmax - 100)) / 100.0) / 20.0
-
+        fb = MASS * G * pressure * math.exp(-(temp_b - (temp_max - 100)) / 100.0) / 20.0
     total_force = fg - feb - fb
     acceleration = total_force / MASS
     new_velocity = current_velocity + acceleration * dt
     return new_velocity
 
+
 def initialize_population(population_size, chromosome_length):
     return np.random.rand(population_size, chromosome_length)
 
+
 def feedforward_neural_network(alpha_input, velocity_input, temp_input, wIH, wHO):
     input_neurons = np.array([alpha_input, velocity_input, temp_input])
-
     n_input_neurons = input_neurons.size
     n_hidden_neurons = wIH.shape[0]
     n_output_neurons = wHO.shape[0]
-
     hidden_neurons = np.zeros(n_hidden_neurons)
     output_neurons = np.zeros(n_output_neurons)
-
     for j in range(n_hidden_neurons):
         weights = wIH[j, :n_input_neurons]
         bias = wIH[j, -1]
         local_field = np.dot(weights, input_neurons) - bias
         hidden_neurons[j] = sigmoid(local_field)
-
     for i in range(n_output_neurons):
         weights = wHO[i, :n_hidden_neurons]
         bias = wHO[i, -1]
         local_field = np.dot(weights, hidden_neurons) - bias
         output_neurons[i] = sigmoid(local_field)
-
     pressure = output_neurons[0]
     delta_gear_raw = output_neurons[1]
-
     if delta_gear_raw > 0.6:
         delta_gear = 1
     elif delta_gear_raw < 0.4:
         delta_gear = -1
     else:
         delta_gear = 0
-
     return pressure, delta_gear
-
-import matplotlib.pyplot as plt
 
 def Plot(horizontal_distance_list, alpha_list, pressure_list, gear_list, velocity_list, tempB_list, horizontal_distance_gear_list):
     plt.figure(figsize=(10, 12))
-
     plt.subplot(5, 1, 1)
     plt.plot(horizontal_distance_list, alpha_list, linewidth=1.5)
     plt.ylabel(r'$\alpha$ (deg)')
-
     plt.subplot(5, 1, 2)
     plt.plot(horizontal_distance_list, pressure_list, linewidth=1.5)
     plt.ylabel('Pressure')
-
     plt.subplot(5, 1, 3)
     plt.plot(horizontal_distance_gear_list, gear_list, linewidth=1.5)
     plt.ylabel('Gear')
-
     plt.subplot(5, 1, 4)
     plt.plot(horizontal_distance_list, velocity_list, linewidth=1.5)
     plt.ylabel('v (m/s)')
-
     plt.subplot(5, 1, 5)
     plt.plot(horizontal_distance_list, tempB_list, linewidth=1.5)
     plt.ylabel(r'$T_b$ (K)')
     plt.xlabel('Horizontal distance (m)')
-
     plt.tight_layout()
     plt.show()
 
@@ -213,8 +200,7 @@ def evaluate_individual(wIH, wHO, i_slope, i_dataset, plot_result=False):
 
     avg_velocity = np.mean(velocity_list)
     fitness = avg_velocity * horizontal_distance
-    
-    # Optional plotting (implement if needed)
+
     if plot_result:
         Plot(horizontal_distance_list, alpha_list, pressure_list, gear_list, velocity_list, brake_temp_list, horizontal_distance_gear_list)
 
