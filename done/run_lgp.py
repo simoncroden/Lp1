@@ -167,10 +167,9 @@ def run_function_optimization(pop_size, min_len, max_len, var_regs, all_regs,
             f.write(" ".join(map(str, global_best_chrom)))
         print(f"Final RMS: {1 / best_fitness[0]:.6f}")
 
-# --- Parameters ---
 n_gen, pop_size = 30, 100
 max_len, min_len = 150, 25
-t_prob, t_size, c_prob, m_rate, m_decay = 0.75, 5, 0.8, 80, 0.9999
+t_prob, t_size, c_prob, m_rate, m_decay = 0.7, 4, 0.7, 70, 0.9999
 n_var = 3
 consts = [t for t in range(1,4)]
 var_regs = [0] * n_var

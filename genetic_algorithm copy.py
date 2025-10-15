@@ -1,6 +1,6 @@
 import random
 import math
-from function_data import load_function_data
+from done.function_data import load_function_data
 import numpy as np
 
 # Initialize population:
@@ -181,7 +181,7 @@ best_fitness, best_chromosome = run_function_optimization(
     4,
     0.75,
     0.8,
-    0.2,
+    80,
     1000
 )
 

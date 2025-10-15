@@ -1,6 +1,6 @@
 import numpy as np
 import random
-from function_data import load_function_data
+from done.function_data import load_function_data
 
 def tournament_select(fitness_list, tournament_selection_parameter, tournament_size):
     population_size = len(fitness_list)

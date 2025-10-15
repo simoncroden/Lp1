@@ -1,5 +1,5 @@
 import random
-from function_data import load_function_data
+from done.function_data import load_function_data
 import matplotlib.pyplot as plt
 
 def TwoPointCrossover(winner1, winner2, population, crossoverProb):

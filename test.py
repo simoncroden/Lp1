@@ -17,7 +17,7 @@ import random
 import copy
 import math
 import json
-from function_data import load_function_data
+from done.function_data import load_function_data
 import numpy as np
 
 # ---------- Parameters (tune as needed) ----------

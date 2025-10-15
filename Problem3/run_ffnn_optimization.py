@@ -10,22 +10,17 @@ def sigmoid(x, c=2):
 def tournament_select(fitness_list, tournament_selection_parameter, tournament_size):
     population_size = len(fitness_list)
 
-    # Select random indices for tournament
     random_indices = random.sample(range(population_size), tournament_size)
 
-    # Sort indices by fitness descending
     random_indices.sort(key=lambda idx: fitness_list[idx], reverse=True)
 
-    # Iterate through sorted individuals
     for i in range(tournament_size):
         r = random.random()
         if r < tournament_selection_parameter:
             return random_indices[i]
 
-    # If none selected, return the least fit (last in descending list)
     return random_indices[-1]
 
-# Carry out crossover:
 def cross(chromosome1, chromosome2):
     number_of_genes = len(chromosome1)
     cross_point = random.randint(1, number_of_genes - 1)
@@ -38,46 +33,42 @@ def mutate(chromosome, mutation_prob, creep_prob=0.8, creep_rate=0.5):
     for i in range(len(chromosome)):
         if random.random() < mutation_prob:
             if random.random() < creep_prob:
-                # Small creep mutation
                 mutated[i] = mutated[i] - creep_rate/2 + creep_rate * random.random()
-                # Clamp to [0, 1] if needed
                 mutated[i] = max(0, min(1, mutated[i]))
             else:
-                # Full flip (like your original)
                 mutated[i] = 1 - mutated[i]
     return mutated
 
 def truck_model(pressure, temp_b, temp_max, alpha_deg, gear, dt, current_velocity):
-    Cb=3000
-    M = 20000
+    cb = 3000.0
+    mass = 20000.0
     g = 9.82
-    tmax = 0
+    tmax = 0.0
 
-    gear_forces = {1: 7.0, 2: 5.0, 3: 4.0, 4: 3.0, 5: 2.5, 6: 2.0,
-                   7: 1.6, 8: 1.4, 9: 1.2, 10: 1.0}
-    Feb = gear_forces[gear] * Cb
-    Fg = M*g*math.sin(math.radians(alpha_deg))
+    gear_forces = {
+        1: 7.0, 2: 5.0, 3: 4.0, 4: 3.0, 5: 2.5,
+        6: 2.0, 7: 1.6, 8: 1.4, 9: 1.2, 10: 1.0
+    }
+
+    feb = gear_forces[gear] * cb
+    fg = mass * g * math.sin(math.radians(alpha_deg))
 
     if temp_b < temp_max - 100:
-        fb = M*g*pressure/20
+        fb = mass * g * pressure / 20.0
     else:
-        fb = M*g*pressure*math.exp(-(temp_b-(tmax-100))/100)/20
+        fb = mass * g * pressure * math.exp(-(temp_b - (tmax - 100)) / 100.0) / 20.0
 
-    total_force = Fg-Feb-fb
-
-    acceleration = total_force / M
+    total_force = fg - feb - fb
+    acceleration = total_force / mass
     new_velocity = current_velocity + acceleration * dt
-
     return new_velocity
 
 def initialize_population(population_size, chromosome_length):
     return np.random.rand(population_size, chromosome_length)
 
 def feedforward_neural_network(alpha_input, velocity_input, temp_input, wIH, wHO):
-    # Inputs as a numpy array
     input_neurons = np.array([alpha_input, velocity_input, temp_input])
 
-    # Number of neurons in each layer
     n_input_neurons = input_neurons.size
     n_hidden_neurons = wIH.shape[0]
     n_output_neurons = wHO.shape[0]
@@ -85,14 +76,12 @@ def feedforward_neural_network(alpha_input, velocity_input, temp_input, wIH, wHO
     hidden_neurons = np.zeros(n_hidden_neurons)
     output_neurons = np.zeros(n_output_neurons)
 
-    # Hidden layer computation
     for j in range(n_hidden_neurons):
         weights = wIH[j, :n_input_neurons]
         bias = wIH[j, -1]
         local_field = np.dot(weights, input_neurons) - bias
         hidden_neurons[j] = sigmoid(local_field)
 
-    # Output layer computation
     for i in range(n_output_neurons):
         weights = wHO[i, :n_hidden_neurons]
         bias = wHO[i, -1]
@@ -173,7 +162,6 @@ def evaluate_individual(wIH, wHO, iSlope, iDataSet, plot_result=False):
     while not valid:
         i += 1
         
-        # Get slope angle normalized
         alpha = get_slope_angle(horizontal_distance, iSlope, iDataSet)
         alpha_input = alpha / alphaMax
         velocity_input = velocity / max_velocity
@@ -181,7 +169,6 @@ def evaluate_individual(wIH, wHO, iSlope, iDataSet, plot_result=False):
         
         pressure, delta_gear = feedforward_neural_network(alpha_input, velocity_input, temp_input, wIH, wHO)
         
-        # Store values for plotting or analysis
         alpha_list.append(alpha)
         pressure_list.append(pressure)
         gear_list.append(gear)
@@ -190,7 +177,6 @@ def evaluate_individual(wIH, wHO, iSlope, iDataSet, plot_result=False):
         horizontal_distance_list.append(horizontal_distance)
         horizontal_distance_gear_list.append(horizontal_distance)
 
-        # Gear change decision every gearTimeConstraintInt ticks
         if timeCounter % gearTimeConstraintInt == 0:
             gear += delta_gear
             gear = min(max(gear, 1), 10)
@@ -200,10 +186,8 @@ def evaluate_individual(wIH, wHO, iSlope, iDataSet, plot_result=False):
         
         timeCounter += deltaTimeInt
         
-        # Update velocity using truck model
         velocity = truck_model(pressure, tempB, tempMax, alpha, gear, deltaTime, velocity)
         
-        # Update brake temperature
         deltaTempB = tempB - tempAmb
         if pressure < 0.01:
             dDeltaTempB = -deltaTempB / tau
@@ -212,7 +196,6 @@ def evaluate_individual(wIH, wHO, iSlope, iDataSet, plot_result=False):
         
         tempB = deltaTempB + dDeltaTempB * deltaTime + tempAmb
         
-        # Check termination conditions
         if tempB > tempMax:
             valid = True
         elif velocity < min_velocity or velocity > max_velocity:
@@ -231,29 +214,6 @@ def evaluate_individual(wIH, wHO, iSlope, iDataSet, plot_result=False):
 
     return fitness
 
-# Constants and hyperparameters
-nFFNNs = 10
-nIn = 3
-nHidden = 8
-nOut = 2
-wMax = 5
-chromosomeLength = (nIn + 1) * nHidden + (nHidden + 1) * nOut
-mutationProb = 1 / chromosomeLength
-creepProb = 0.8
-creepRateInitial = 0.5
-creepDecay = 0.999
-crossoverProb = 0.8
-trainingSet = 1
-validationSet = 2
-nTrainingSlopes = 10
-nValidationSlopes = 5
-tournamentProbability = 0.75
-tournamentSize = 4
-
-trainedCriteria = 200
-
-
-# Main Genetic Algorithm Loop
 def genetic_algorithm():
     population = initialize_population(nFFNNs, chromosomeLength)
     creep_rate = creepRateInitial
@@ -274,23 +234,19 @@ def genetic_algorithm():
         fitness_list_training = np.zeros(nFFNNs)
         fitness_list_validation = np.zeros(nFFNNs)
 
-        # Evaluation
         for individual in range(nFFNNs):
             chromosome = population[individual]
             wIH, wHO = decode_chromosome(chromosome, nIn, nHidden, nOut, wMax)
 
-            # Evaluate training fitness
             total_fitness = 0
             for iSlope in range(1, nTrainingSlopes + 1):
                 total_fitness += evaluate_individual(wIH, wHO, iSlope, trainingSet, False)
             fitness_list_training[individual] = total_fitness / nTrainingSlopes
 
-            # Update best training fitness
             if fitness_list_training[individual] > max_fitness_training:
                 max_fitness_training = fitness_list_training[individual]
                 best_chromosome_so_far = chromosome.copy()
 
-            # Evaluate validation fitness
             total_fitness_val = 0
             for iSlope in range(1, nValidationSlopes + 1):
                 total_fitness_val += evaluate_individual(wIH, wHO, iSlope, validationSet, False)
@@ -312,13 +268,11 @@ def genetic_algorithm():
         else:
             validation_counter += 1
 
-
         if validation_counter >= trainedCriteria:
             trained = True
 
         if not trained:
             tmp_population = population.copy()
-            # Crossover
             for i in range(0, nFFNNs, 2):
                 winner1 = tournament_select(fitness_list_training, tournamentProbability, tournamentSize)
                 winner2 = tournament_select(fitness_list_training, tournamentProbability, tournamentSize)
@@ -333,21 +287,17 @@ def genetic_algorithm():
                     if i + 1 < nFFNNs:
                         tmp_population[i + 1] = population[winner2]
 
-            # Elitism - preserve best individual
             best_individual_index = np.argmax(fitness_list_training)
             tmp_population[0] = population[best_individual_index]
 
-            # Mutation
             for i in range(1, nFFNNs):
                 tmp_population[i] = mutate(tmp_population[i], mutationProb, creepProb, creep_rate)
 
-            # Decay creep rate
             if creep_rate > 0.005:
-                creep_rate *= creepDecay
+                creep_rate = creep_rate*creepDecay
 
             population = tmp_population
 
-    # Plot results
     plt.plot(range(iterations), best_fitness_training_list, ".-", label="Fitness training set")
     plt.plot(range(iterations), best_fitness_validation_list, ".-", label="Fitness validation set")
     plt.xlabel("Generation")
@@ -358,6 +308,27 @@ def genetic_algorithm():
     print(f"iterations: {iterations}")
     return best_chromosome_so_far
 
-# Run the GA (will raise errors if EvaluateIndividual/feed_forward not implemented)
+nFFNNs = 10
+nIn = 3
+nHidden = 8
+nOut = 2
+wMax = 5
+chromosomeLength = (nIn + 1) * nHidden + (nHidden + 1) * nOut
+mutationProb = 1 / chromosomeLength
+creepProb = 0.8
+creepRateInitial = 0.5
+creepDecay = 0.999
+crossoverProb = 0.8
+trainingSet = 1
+validationSet = 2
+nTrainingSlopes = 10
+nValidationSlopes = 5
+tournamentProbability = 0.75
+tournamentSize = 4
+
+trainedCriteria = 200
+
 best_chromosome = genetic_algorithm()
 
+with open("best_chromosome.py", "w") as f:
+    f.write(" ".join(map(str, best_chromosome)))
