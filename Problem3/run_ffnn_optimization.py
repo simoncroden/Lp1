@@ -4,6 +4,23 @@ import random
 from run_encoding_decoding_test import encode_network, decode_chromosome
 from slopes import get_slope_angle
 
+START_VELOCITY = 20
+MIN_VELOCITY = 1
+MAX_VELOCITY = 25
+INITIAL_GEAR = 7
+INITIAL_BRAKE_TEMP = 500
+AMBIENT_TEMP = 283
+MAX_BRAKE_TEMP = 750
+TAU = 30
+HEAT_CONSTANT = 40
+MAX_SLOPE_ANGLE = 10
+DELTA_T = 0.1
+DELTA_T_INT = 1              
+INITIAL_TIME_COUNTER = 20
+GEAR_TIME_CONSTRAINT_INT = 20  
+SLOPE_LENGTH = 1000
+PRESSURE_THRESHOLD = 0.01
+
 def sigmoid(x, c=2):
     return 1 / (1 + np.exp(-c * x))
 
@@ -40,9 +57,9 @@ def mutate(chromosome, mutation_prob, creep_prob=0.8, creep_rate=0.5):
     return mutated
 
 def truck_model(pressure, temp_b, temp_max, alpha_deg, gear, dt, current_velocity):
-    cb = 3000.0
-    mass = 20000.0
-    g = 9.82
+    CB = 3000.0
+    MASS = 20000.0
+    G = 9.82
     tmax = 0.0
 
     gear_forces = {
@@ -50,16 +67,16 @@ def truck_model(pressure, temp_b, temp_max, alpha_deg, gear, dt, current_velocit
         6: 2.0, 7: 1.6, 8: 1.4, 9: 1.2, 10: 1.0
     }
 
-    feb = gear_forces[gear] * cb
-    fg = mass * g * math.sin(math.radians(alpha_deg))
+    feb = gear_forces[gear] * CB
+    fg = MASS * G * math.sin(math.radians(alpha_deg))
 
     if temp_b < temp_max - 100:
-        fb = mass * g * pressure / 20.0
+        fb = MASS * G * pressure / 20.0
     else:
-        fb = mass * g * pressure * math.exp(-(temp_b - (tmax - 100)) / 100.0) / 20.0
+        fb = MASS * G * pressure * math.exp(-(temp_b - (tmax - 100)) / 100.0) / 20.0
 
     total_force = fg - feb - fb
-    acceleration = total_force / mass
+    acceleration = total_force / MASS
     new_velocity = current_velocity + acceleration * dt
     return new_velocity
 
@@ -91,9 +108,9 @@ def feedforward_neural_network(alpha_input, velocity_input, temp_input, wIH, wHO
     pressure = output_neurons[0]
     delta_gear_raw = output_neurons[1]
 
-    if delta_gear_raw > 2/3:
+    if delta_gear_raw > 0.6:
         delta_gear = 1
-    elif delta_gear_raw < 1/3:
+    elif delta_gear_raw < 0.4:
         delta_gear = -1
     else:
         delta_gear = 0
@@ -130,87 +147,76 @@ def Plot(horizontal_distance_list, alpha_list, pressure_list, gear_list, velocit
     plt.show()
 
 
-def evaluate_individual(wIH, wHO, iSlope, iDataSet, plot_result=False):
-    horizontal_distance = 0
-    start_velocity = 20
-    velocity = start_velocity
-    min_velocity = 1
-    max_velocity = 25
-    gear = 7
-    tempB = 500
-    tempAmb = 283
-    tempMax = 750
-    tau = 30
-    constantH = 40
-    alphaMax = 10
-    deltaTime = 0.1
-    deltaTimeInt = 1  # 1 represents 0.1 sec
-    timeCounter = 20
-    gearTimeConstraintInt = 20  # 20 represents 2 sec
-    slopeLength = 1000
+def evaluate_individual(wIH, wHO, i_slope, i_dataset, plot_result=False):
+    horizontal_distance = 0.0
+    velocity = START_VELOCITY
+    gear = INITIAL_GEAR
+    brake_temp = INITIAL_BRAKE_TEMP
+    time_counter = INITIAL_TIME_COUNTER
+    valid = False
 
     alpha_list = []
     pressure_list = []
     gear_list = []
     velocity_list = []
-    tempB_list = []
+    brake_temp_list = []
     horizontal_distance_list = []
     horizontal_distance_gear_list = []
 
-    i = 0
-    valid = False
     while not valid:
-        i += 1
-        
-        alpha = get_slope_angle(horizontal_distance, iSlope, iDataSet)
-        alpha_input = alpha / alphaMax
-        velocity_input = velocity / max_velocity
-        temp_input = tempB / tempMax
-        
-        pressure, delta_gear = feedforward_neural_network(alpha_input, velocity_input, temp_input, wIH, wHO)
-        
+        alpha = get_slope_angle(horizontal_distance, i_slope, i_dataset)
+
+        alpha_input = alpha / MAX_SLOPE_ANGLE
+        velocity_input = velocity / MAX_VELOCITY
+        temp_input = brake_temp / MAX_BRAKE_TEMP
+
+        pressure, delta_gear = feedforward_neural_network(
+            alpha_input, velocity_input, temp_input, wIH, wHO
+        )
+
         alpha_list.append(alpha)
         pressure_list.append(pressure)
         gear_list.append(gear)
         velocity_list.append(velocity)
-        tempB_list.append(tempB)
+        brake_temp_list.append(brake_temp)
         horizontal_distance_list.append(horizontal_distance)
         horizontal_distance_gear_list.append(horizontal_distance)
 
-        if timeCounter % gearTimeConstraintInt == 0:
+        if time_counter % GEAR_TIME_CONSTRAINT_INT == 0:
             gear += delta_gear
             gear = min(max(gear, 1), 10)
-            timeCounter = 0
+            time_counter = 0
             gear_list.append(gear)
             horizontal_distance_gear_list.append(horizontal_distance)
-        
-        timeCounter += deltaTimeInt
-        
-        velocity = truck_model(pressure, tempB, tempMax, alpha, gear, deltaTime, velocity)
-        
-        deltaTempB = tempB - tempAmb
-        if pressure < 0.01:
-            dDeltaTempB = -deltaTempB / tau
+
+        time_counter += DELTA_T_INT
+
+        velocity = truck_model(
+            pressure, brake_temp, MAX_BRAKE_TEMP, alpha, gear, DELTA_T, velocity
+        )
+
+        delta_temp_b = brake_temp - AMBIENT_TEMP
+        if pressure < PRESSURE_THRESHOLD:
+            d_delta_temp_b = -delta_temp_b / TAU
         else:
-            dDeltaTempB = constantH * pressure
-        
-        tempB = deltaTempB + dDeltaTempB * deltaTime + tempAmb
-        
-        if tempB > tempMax:
+            d_delta_temp_b = HEAT_CONSTANT * pressure
+        brake_temp = delta_temp_b + d_delta_temp_b * DELTA_T + AMBIENT_TEMP
+
+        if brake_temp > MAX_BRAKE_TEMP:
             valid = True
-        elif velocity < min_velocity or velocity > max_velocity:
+        elif velocity < MIN_VELOCITY or velocity > MAX_VELOCITY:
             valid = True
-        elif horizontal_distance >= slopeLength:
+        elif horizontal_distance >= SLOPE_LENGTH:
             valid = True
         else:
-            horizontal_distance += np.cos(np.radians(alpha)) * velocity * deltaTime
-    
+            horizontal_distance += np.cos(np.radians(alpha)) * velocity * DELTA_T
+
     avg_velocity = np.mean(velocity_list)
     fitness = avg_velocity * horizontal_distance
     
     # Optional plotting (implement if needed)
     if plot_result:
-        Plot(horizontal_distance_list, alpha_list, pressure_list, gear_list, velocity_list, tempB_list, horizontal_distance_gear_list)
+        Plot(horizontal_distance_list, alpha_list, pressure_list, gear_list, velocity_list, brake_temp_list, horizontal_distance_gear_list)
 
     return fitness
 
@@ -325,7 +331,6 @@ nTrainingSlopes = 10
 nValidationSlopes = 5
 tournamentProbability = 0.75
 tournamentSize = 4
-
 trainedCriteria = 200
 
 best_chromosome = genetic_algorithm()

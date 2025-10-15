@@ -18,35 +18,35 @@ def init(N,n,min,max):
             velocity_matrix[i][j] = ALPHA/DELTA_T*(-(max-min)/2+r*(max-min))
     return x_matrix,velocity_matrix
 
-def algo(x_matrix,velocity_matrix,iterations,delta_t,vmax):
+def algo(x_matrix,velocity_matrix,iterations,delta_t,v_max):
     N,n = x_matrix.shape
     C1 = 1.5
     C2 = 1.5    
 
-    xb = x_matrix.copy()
-    xb_values = np.array([f(x_matrix[i]) for i in range(N)])
-    xs = xb[np.argmin(xb_values)]
+    x_best = x_matrix.copy()
+    x_best_values = np.array([f(x_matrix[i]) for i in range(N)])
+    x_global_best = x_best[np.argmin(x_best_values)]
 
     for iteration in range(iterations):
         for i in range(N):
             w = 1.2 - 0.9*i/iterations
-            r, q = np.random.rand(), np.random.rand()
+            random_1, random_2= np.random.rand(), np.random.rand()
 
             velocity_matrix[i] = (
-               w*velocity_matrix[i] +C1*q*(xb[i]-x_matrix[i])/delta_t + C2*r*(xs-x_matrix[i])/delta_t
+               w*velocity_matrix[i] +C1*random_2*(x_best[i]-x_matrix[i])/delta_t + C2*random_1*(x_global_best-x_matrix[i])/delta_t
             )
 
-            velocity_matrix[i] = np.clip(velocity_matrix[i], -vmax, vmax)
+            velocity_matrix[i] = np.clip(velocity_matrix[i], -v_max, v_max)
 
             x_matrix[i] += velocity_matrix[i]*delta_t
 
-            if f(x_matrix[i]) < xb_values[i]:
-                xb[i] = x_matrix[i].copy()
-                xb_values[i] = f(x_matrix[i])
-        xs = xb[np.argmin(xb_values)].copy()
+            if f(x_matrix[i]) < x_best_values[i]:
+                x_best[i] = x_matrix[i].copy()
+                x_best_values[i] = f(x_matrix[i])
+        x_global_best = x_best[np.argmin(x_best_values)].copy()
 
 
-    return xs
+    return x_global_best
 
         
 N = 200
